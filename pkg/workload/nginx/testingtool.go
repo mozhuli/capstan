@@ -19,6 +19,7 @@ package nginx
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/ZJU-SEL/capstan/pkg/capstan/types"
 	"github.com/ZJU-SEL/capstan/pkg/workload"
+	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	apismetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +53,7 @@ type TestingTool struct {
 	Name           string
 	Image          string
 	Steps          time.Duration
-	CurrentTesting string
+	CurrentTesting workload.TestingCase
 	TestingCaseSet []workload.TestingCase
 }
 
@@ -59,13 +61,14 @@ type TestingTool struct {
 var _ workload.Tool = &TestingTool{}
 
 // Run runs the defined testing case set for wrk testing tool (to adhere to workload.Tool interface).
-func (t *TestingTool) Run(kubeClient kubernetes.Interface, testingCase string) error {
+func (t *TestingTool) Run(kubeClient kubernetes.Interface, testingCase workload.TestingCase) error {
 	t.CurrentTesting = testingCase
+
 	// 1. start a workload for the testing case.
-	workloadPodName := t.workloadPodName(testingCase)
+	workloadPodName := t.workloadPodName(testingCase.Name)
 	tempWorkloadArgs := struct{ Name, TestingName, Image string }{
 		Name:        workloadPodName,
-		TestingName: testingCase,
+		TestingName: testingCase.Name,
 		Image:       t.Workload.GetImage(),
 	}
 
@@ -77,18 +80,18 @@ func (t *TestingTool) Run(kubeClient kubernetes.Interface, testingCase string) e
 		return errors.Wrapf(err, "unable to create the %s workload for testing case %s", t.Workload.GetName(), testingCase)
 	}
 
-	// 2. get pod ip of the workload until workload is running.
+	// 2. get the pod ip of the workload until workload is running.
 	podIP, err := t.getRunningPodIP(kubeClient, workloadPodName)
 	if err != nil {
 		return errors.Wrapf(err, "unable to find pod %s's ip created by the %s workload for testing case %s", workloadPodName, t.Workload.GetName(), testingCase)
 	}
 
 	// 3. start a testing pod for testing the workload.
-	testingPodName := t.testingPodName(testingCase)
-	testingPod, args := t.findTemplate(testingCase)
+	testingPodName := t.testingPodName(testingCase.Name)
+	testingPod, args := t.findTemplate(testingCase.Name)
 	tempTestingArgs := struct{ Name, TestingName, Image, WorkloadName, Args, PodIP string }{
 		Name:         testingPodName,
-		TestingName:  testingCase,
+		TestingName:  testingCase.Name,
 		Image:        t.GetImage(),
 		WorkloadName: workloadPodName,
 		Args:         fomatArgs(args),
@@ -99,6 +102,7 @@ func (t *TestingTool) Run(kubeClient kubernetes.Interface, testingCase string) e
 	if err != nil {
 		return errors.Wrapf(err, "unable to parse %v using %v", testingPod, tempTestingArgs)
 	}
+
 	if err := workload.CreatePod(kubeClient, testingPodBytes); err != nil {
 		return errors.Wrapf(err, "unable to create the testing pod for testing case %s", testingCase)
 	}
@@ -108,11 +112,11 @@ func (t *TestingTool) Run(kubeClient kubernetes.Interface, testingCase string) e
 
 //GetTestingResults gets the testing results of wrk testing case (to adhere to workload.Tool interface).
 func (t *TestingTool) GetTestingResults(kubeClient kubernetes.Interface) error {
-	name := t.testingPodName(t.CurrentTesting)
+	name := t.testingPodName(t.CurrentTesting.Name)
 	for {
 		// Sleep between each poll
 		// TODO(mozhuli): Use a watcher instead of polling.
-		time.Sleep(10 * time.Second)
+		time.Sleep(30 * time.Second)
 
 		// Make sure there's a pod.
 		pod, err := kubeClient.CoreV1().Pods(workload.DefaultNamespace).Get(name, apismetav1.GetOptions{})
@@ -125,6 +129,7 @@ func (t *TestingTool) GetTestingResults(kubeClient kubernetes.Interface) error {
 			return err
 		}
 
+		// Check testing has done.
 		body, err := kubeClient.CoreV1().Pods(workload.DefaultNamespace).GetLogs(
 			name,
 			&v1.PodLogOptions{},
@@ -134,8 +139,10 @@ func (t *TestingTool) GetTestingResults(kubeClient kubernetes.Interface) error {
 			return errors.WithStack(err)
 		}
 
+		glog.V(5).Infof("Checking testing has done:\n%s", string(body))
 		if hasTestingDone(body) {
-			outdir := path.Join(types.ResultsDir, "workloads", t.Workload.GetName(), t.GetName(), t.CurrentTesting)
+			glog.V(4).Infof("Testing case %s has done.", t.CurrentTesting.Name)
+			outdir := path.Join(types.ResultsDir, "workloads", t.Workload.GetName(), t.GetName(), t.CurrentTesting.Name)
 			if err = os.MkdirAll(outdir, 0755); err != nil {
 				return errors.WithStack(err)
 			}
@@ -151,10 +158,10 @@ func (t *TestingTool) GetTestingResults(kubeClient kubernetes.Interface) error {
 
 // Cleanup cleans up all resources created by a testing case for wrk testing tool (to adhere to workload.Tool interface).
 func (t *TestingTool) Cleanup(kubeClient kubernetes.Interface) error {
-	if err := workload.DeletePod(kubeClient, t.testingPodName(t.CurrentTesting)); err != nil {
+	if err := workload.DeletePod(kubeClient, t.testingPodName(t.CurrentTesting.Name)); err != nil {
 		return err
 	}
-	if err := workload.DeletePod(kubeClient, t.workloadPodName(t.CurrentTesting)); err != nil {
+	if err := workload.DeletePod(kubeClient, t.workloadPodName(t.CurrentTesting.Name)); err != nil {
 		return err
 	}
 	return nil
@@ -214,13 +221,11 @@ func (t *TestingTool) getRunningPodIP(kubeClient kubernetes.Interface, name stri
 
 // findTemplate returns the true testing tool template and arguments for different testing cases.
 func (t *TestingTool) findTemplate(name string) (string, string) {
-	for _, testingCase := range t.TestingCaseSet {
-		if testingCase.Name == benchmarkPodIPDiffNode {
-			return wrkPodAntiAffinity, testingCase.TestingToolArgs
-		}
-		if testingCase.Name == benchmarkPodIPSameNode {
-			return wrkPodAntiAffinity, testingCase.TestingToolArgs
-		}
+	if t.CurrentTesting.Name == benchmarkPodIPDiffNode {
+		return wrkPodAntiAffinity, t.CurrentTesting.TestingToolArgs
+	}
+	if t.CurrentTesting.Name == benchmarkPodIPSameNode {
+		return wrkPodAffinity, t.CurrentTesting.TestingToolArgs
 	}
 	return "", ""
 }
@@ -230,27 +235,27 @@ func fomatArgs(agrs string) string {
 	var str string
 	for i, s := range ss {
 		if i == len(ss)-1 {
-			str = str + "\"" + s + "\""
+			str = str + fmt.Sprintf("\"%s\"", s)
 		} else {
-			str = str + "\"" + s + "\"" + ","
+			str = str + fmt.Sprintf("\"%s\",", s)
 		}
 	}
 	return str
 }
 
 func (t *TestingTool) workloadPodName(testingName string) string {
-	return strings.ToLower("capstan" + t.Workload.GetName() + testingName)
+	return strings.ToLower("capstan-" + t.Workload.GetName() + "-" + testingName)
 }
 
 func (t *TestingTool) testingPodName(testingName string) string {
-	return strings.ToLower("capstan" + t.GetName() + testingName)
+	return strings.ToLower("capstan-" + t.GetName() + "-" + testingName)
 }
 
 func hasTestingDone(data []byte) bool {
 	scanner := bufio.NewScanner(bytes.NewBuffer(data))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if line == "Capstan testing Done" {
+		if line == "Capstan Testing Done" {
 			return true
 		}
 	}

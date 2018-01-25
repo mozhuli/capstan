@@ -17,14 +17,10 @@ limitations under the License.
 package capstan
 
 import (
-	"net/http"
 	"time"
 
-	"github.com/ZJU-SEL/capstan/pkg/analysis"
 	"github.com/ZJU-SEL/capstan/pkg/capstan/loader"
 	"github.com/ZJU-SEL/capstan/pkg/capstan/types"
-	"github.com/ZJU-SEL/capstan/pkg/dashboard"
-	"github.com/ZJU-SEL/capstan/pkg/data/cadvisor"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"k8s.io/client-go/kubernetes"
@@ -58,30 +54,33 @@ func Run(kubeClient kubernetes.Interface, capstanConfig string) error {
 		return errors.Wrap(err, "Failed load workloads")
 	}
 
-	// 2. Launch the HTTP server
-	srv := &http.Server{
-		Addr:    cfg.Address,
-		Handler: dashboard.NewHandler(),
-	}
-	doneServ := make(chan error)
-	go func() {
-		doneServ <- srv.ListenAndServe()
-	}()
+	/*
+		// 2. Launch the HTTP server
+		srv := &http.Server{
+			Addr:    cfg.Address,
+			Handler: dashboard.NewHandler(),
+		}
+		doneServ := make(chan error)
+		go func() {
+			doneServ <- srv.ListenAndServe()
+		}()
 
-	// 3. Start obtaining cadvisor data
-	cadvisorErr := make(chan error)
-	glog.V(1).Infof("Starting obtaining cadvisor data")
-	go func() {
-		cadvisorErr <- cadvisor.Start(cfg.Cadvisor)
-	}()
+		// 3. Start obtaining cadvisor data
+		cadvisorErr := make(chan error)
+		glog.V(1).Infof("Starting obtaining cadvisor data")
+		go func() {
+			cadvisorErr <- cadvisor.Start(cfg.Cadvisor)
+		}()
 
-	// 4. TODO(mozhuli): Start obtaining resource usage data of kubelet
+		// 4. TODO(mozhuli): Start obtaining resource usage data of kubelet
+	*/
 
 	// 5. Start runs all testing workloads sequentially
 	doneTesting := make(chan bool, 1)
 	testingErr := make(chan error)
 	go func() {
 		for _, wk := range workloads {
+			glog.V(1).Infof("starting workload %v", wk)
 			err := wk.Run(kubeClient)
 			if err != nil {
 				testingErr <- err
@@ -91,25 +90,21 @@ func Run(kubeClient kubernetes.Interface, capstanConfig string) error {
 		doneTesting <- true
 	}()
 
-	// 6. Block analysis until a testing workload results has been returned
-	analysisErr := make(chan error)
-	go func() {
-		if <-doneTesting {
-			analysisErr <- analysis.Start(cfg.ResultsDir)
-		}
-	}()
+	/*
+		// 6. Block analysis until a testing workload results has been returned
+		analysisErr := make(chan error)
+		go func() {
+			if <-doneTesting {
+				analysisErr <- analysis.Start(cfg.ResultsDir)
+			}
+		}()
+
+	*/
 
 	select {
-	case err := <-cadvisorErr:
-		return err
 	case err := <-testingErr:
 		return err
-	case err := <-analysisErr:
-		return err
-	case err := <-doneServ:
-		if err != nil {
-			return err
-		}
+	case <-doneTesting:
+		return nil
 	}
-	return nil
 }

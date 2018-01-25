@@ -41,7 +41,7 @@ type TestingTool struct {
 	Workload       *Workload
 	Name           string
 	Image          string
-	CurrentTesting string
+	CurrentTesting workload.TestingCase
 	Steps          time.Duration
 	TestingCaseSet []workload.TestingCase
 }
@@ -50,7 +50,7 @@ type TestingTool struct {
 var _ workload.Tool = &TestingTool{}
 
 // Run runs the defined testing case set for iperf testing tool (to adhere to workload.Tool interface).
-func (t *TestingTool) Run(kubeClient kubernetes.Interface, testingCase string) error {
+func (t *TestingTool) Run(kubeClient kubernetes.Interface, testingCase workload.TestingCase) error {
 	return errors.Errorf("Not implemented")
 }
 

@@ -43,7 +43,7 @@ type Interface interface {
 // Tool should be implemented by a testing tool.
 type Tool interface {
 	// Run runs the defined testing case set.
-	Run(kubeClient kubernetes.Interface, testingCase string) error
+	Run(kubeClient kubernetes.Interface, testingCase TestingCase) error
 	// GetTestingResults gets the testing results of a testing case.
 	GetTestingResults(kubeClient kubernetes.Interface) error
 	// Cleanup cleans up all resources created by a testing case.

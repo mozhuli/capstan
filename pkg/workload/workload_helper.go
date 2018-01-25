@@ -18,7 +18,7 @@ package workload
 
 import (
 	"bytes"
-	"html/template"
+	"text/template"
 	"time"
 
 	"github.com/pkg/errors"
@@ -91,9 +91,8 @@ func DeletePod(kubeClient kubernetes.Interface, name string) error {
 	return nil
 }
 
-// IsPodFailing returns whether a testing case pod is failing and isn't likely to
-// succeed.
-// TODO: this may require more revisions as we get more experience with
+// IsPodFailing returns whether a testing case pod is failing and isn't likely to succeed.
+// TODO(mozhuli): this may require more revisions as we get more experience with
 // various types of failures that can occur.
 func IsPodFailing(pod *v1.Pod) (bool, error) {
 	// Check if the pod is unschedulable

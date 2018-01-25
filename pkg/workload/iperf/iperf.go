@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/ZJU-SEL/capstan/pkg/workload"
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"k8s.io/client-go/kubernetes"
 )
@@ -52,10 +51,9 @@ func (w *Workload) Run(kubeClient kubernetes.Interface) error {
 		return err
 	}
 
-	for i, testingCase := range testingTool.GetTestingCaseSet() {
+	for _, testingCase := range testingTool.GetTestingCaseSet() {
 		// running a testing case.
-		glog.V(1).Infof("Running the %dth testing case %q of %v", i, testingCase, w.GetName())
-		err := testingTool.Run(kubeClient, testingCase.Name)
+		err := testingTool.Run(kubeClient, testingCase)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create the resouces belong to testing case %q of %v", testingCase.Name, w.GetName())
 		}

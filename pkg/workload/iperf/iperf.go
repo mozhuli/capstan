@@ -60,16 +60,6 @@ func (w *Workload) Run(kubeClient kubernetes.Interface) error {
 			return errors.Wrapf(err, "Failed to create the resouces belong to testing case %q of %v", testingCase.Name, w.GetName())
 		}
 
-		// monitor the process of the testing case.
-		testingErr := make(chan error)
-
-		go testingTool.Monitor(kubeClient, testingErr)
-
-		err = <-testingErr
-		if err != nil {
-			return errors.Wrapf(err, "Failed to test the case %s", testingCase.Name)
-		}
-
 		// get the testing results of the testing case.
 		err = testingTool.GetTestingResults(kubeClient)
 		if err != nil {

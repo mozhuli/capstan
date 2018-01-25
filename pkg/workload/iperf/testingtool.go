@@ -41,6 +41,7 @@ type TestingTool struct {
 	Workload       *Workload
 	Name           string
 	Image          string
+	CurrentTesting string
 	Steps          time.Duration
 	TestingCaseSet []workload.TestingCase
 }
@@ -61,13 +62,6 @@ func (t *TestingTool) GetTestingResults(kubeClient kubernetes.Interface) error {
 // Cleanup cleans up all resources created by a testing case for iperf testing tool (to adhere to workload.Tool interface).
 func (t *TestingTool) Cleanup(kubeClient kubernetes.Interface) error {
 	return errors.Errorf("Not implemented")
-}
-
-// Monitor continually checks for problems in the resources created by a
-// testing case (either because it won't schedule, too many failed executions, etc)
-// and sends the errors through the provided channel (to adhere to workload.Tool interface).
-func (t *TestingTool) Monitor(kubeClient kubernetes.Interface, testingErr chan error) {
-	testingErr <- errors.Errorf("Not implemented")
 }
 
 // GetName returns the name of iperf testing tool (to adhere to workload.Tool interface).

@@ -35,10 +35,10 @@ import (
 // Basic workflow:
 //
 // 1. Load all workloads
-// 2. Start obtaining cadvisor data
-// 3. Start obtaining resource usage data of kubelet
-// 4. Start runs testing workload sequentially
-// 5. Launch the HTTP server
+// 2. Launch the HTTP server
+// 3. Start obtaining cadvisor data
+// 4. Start obtaining resource usage data of kubelet
+// 5. Start runs testing workload sequentially
 // 6. Block analysis until a testing workload results has been returned
 func Run(kubeClient kubernetes.Interface, capstanConfig string) error {
 	// Read capstan config.
@@ -58,16 +58,26 @@ func Run(kubeClient kubernetes.Interface, capstanConfig string) error {
 		return errors.Wrap(err, "Failed load workloads")
 	}
 
-	// 2. Start obtaining cadvisor data
+	// 2. Launch the HTTP server
+	srv := &http.Server{
+		Addr:    cfg.Address,
+		Handler: dashboard.NewHandler(),
+	}
+	doneServ := make(chan error)
+	go func() {
+		doneServ <- srv.ListenAndServe()
+	}()
+
+	// 3. Start obtaining cadvisor data
 	cadvisorErr := make(chan error)
 	glog.V(1).Infof("Starting obtaining cadvisor data")
 	go func() {
 		cadvisorErr <- cadvisor.Start(cfg.Cadvisor)
 	}()
 
-	// 3. TODO(mozhuli): Start obtaining resource usage data of kubelet
+	// 4. TODO(mozhuli): Start obtaining resource usage data of kubelet
 
-	// 4. Start runs all testing workloads sequentially
+	// 5. Start runs all testing workloads sequentially
 	doneTesting := make(chan bool, 1)
 	testingErr := make(chan error)
 	go func() {
@@ -79,16 +89,6 @@ func Run(kubeClient kubernetes.Interface, capstanConfig string) error {
 			time.Sleep(time.Duration(cfg.Steps) * time.Second)
 		}
 		doneTesting <- true
-	}()
-
-	// 5. Launch the HTTP server
-	srv := &http.Server{
-		Addr:    cfg.Address,
-		Handler: dashboard.NewHandler(),
-	}
-	doneServ := make(chan error)
-	go func() {
-		doneServ <- srv.ListenAndServe()
 	}()
 
 	// 6. Block analysis until a testing workload results has been returned

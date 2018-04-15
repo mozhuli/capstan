@@ -63,11 +63,12 @@ func (w *Workload) Run(kubeClient kubernetes.Interface) error {
 				return errors.Wrapf(err, "Failed to create the resouces belong to testing case %q of %s", testingCase.Name, w.Name)
 			}
 
-			// get the testing results of the testing case.
-			glog.V(4).Infof("Repeat %d: Starting fetch the testing results of the testing case %q", i, testingCase.Name)
-			err = testingTool.GetTestingResults(kubeClient)
+			// check the testing case %q has finished and fetch the results
+			glog.V(4).Infof("Repeat %d: checking the testing case %q has finished and fetch the results", i, testingCase.Name)
+			err = testingTool.HasTestingDone(kubeClient)
 			if err != nil {
-				return errors.Wrapf(err, "Failed to gets the testing results of the testing case %s", testingCase.Name)
+				_ = testingTool.Cleanup(kubeClient)
+				return errors.Wrapf(err, "Failed to check the testing case %q has finished and fetch the results", testingCase.Name)
 			}
 
 			// clean up all the resouces created by the testing case.

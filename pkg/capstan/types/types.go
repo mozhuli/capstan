@@ -30,7 +30,7 @@ var (
 	// ResultsDir is the directory of testing results.
 	ResultsDir = "/tmp/capstan"
 	// Provider is the instance provider
-	Provider string
+	Provider = "local"
 	// PushgatewayEndpoint is the endpoint of pushGateway.
 	PushgatewayEndpoint string
 	// UUID is used to mark a run of capstan.
@@ -72,12 +72,17 @@ func ReadConfig(filepath string) (Config, error) {
 		ResultsDir = config.ResultsDir
 	}
 
-	Provider = config.Provider
+	if config.Provider != "" {
+		Provider = config.Provider
+	}
 
 	if config.Namespace != "" {
 		workload.Namespace = config.Namespace
 	}
 
+	if config.Prometheus.PushgatewayEndpoint == "" {
+		return config, errors.New("PushgatewayEndpoint must not be null")
+	}
 	PushgatewayEndpoint = config.Prometheus.PushgatewayEndpoint
 
 	return config, nil

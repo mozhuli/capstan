@@ -122,8 +122,8 @@ func (t *TestingTool) Run(kubeClient kubernetes.Interface, testingCase workload.
 	return nil
 }
 
-// GetTestingResults gets the testing results of wrk testing case (to adhere to workload.Tool interface).
-func (t *TestingTool) GetTestingResults(kubeClient kubernetes.Interface) error {
+// HasTestingDone check the testing case has finished and fetch the results (to adhere to workload.Tool interface).
+func (t *TestingTool) HasTestingDone(kubeClient kubernetes.Interface) error {
 	name := workload.BuildTestingPodName(t.GetName(), t.CurrentTesting.Name)
 	for {
 		// Sleep between each poll
@@ -235,10 +235,10 @@ func (t *TestingTool) GetTestingCaseSet() []workload.TestingCase {
 // findTemplate returns the true testing tool template and arguments for different testing cases.
 func (t *TestingTool) findTemplate(name string) (string, string) {
 	if t.CurrentTesting.Name == benchmarkPodIPDiffNode {
-		return wrkPodAntiAffinity, t.CurrentTesting.TestingToolArgs
+		return wrkPodAntiAffinity, t.CurrentTesting.Args
 	}
 	if t.CurrentTesting.Name == benchmarkPodIPSameNode {
-		return wrkPodAffinity, t.CurrentTesting.TestingToolArgs
+		return wrkPodAffinity, t.CurrentTesting.Args
 	}
 	return "", ""
 }

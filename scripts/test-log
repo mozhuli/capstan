@@ -1,0 +1,5 @@
+Annotations:  capstan-testing=mysql-tpcc
+              capstan-testingcase=benchmarkTPMCDiffNode
+Status:       TPMC
+IP:           10.244.0.30
+         7623.56 TpmC

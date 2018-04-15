@@ -40,14 +40,12 @@ type Interface interface {
 type Tool interface {
 	// Run runs the defined testing case set.
 	Run(kubeClient kubernetes.Interface, testingCase TestingCase) error
-	// GetTestingResults gets the testing results of a testing case.
-	GetTestingResults(kubeClient kubernetes.Interface) error
+	// HasTestingDone check a testing case has finish or not.
+	HasTestingDone(kubeClient kubernetes.Interface) error
 	// Cleanup cleans up all resources created by a testing case.
 	Cleanup(kubeClient kubernetes.Interface) error
 	// GetName returns the name of this testing tool.
 	GetName() string
-	// GetImage returns the image name of this testing tool.
-	GetImage() string
 	// GetSteps returns the steps between each testing case.
 	GetSteps() time.Duration
 	// GetTestingCaseSet returns the testing case set which the testing tool will run.
@@ -74,14 +72,18 @@ type Helm struct {
 type TestingTool struct {
 	Name           string `json:"name"`
 	Image          string `json:"image"`
+	Script         string `json:"script"`
 	Steps          int    `json:"Steps"`
 	TestingCaseSet []TestingCase
 }
 
 // TestingCase is the internal representation of a testing case.
 type TestingCase struct {
-	Name            string `json:"name"`
-	TestingToolArgs string `json:"testingToolArgs"`
+	Name     string `json:"name"`
+	Affinity bool   `json:"affinity"`
+	Args     string `json:"args"`
+	Envs     string `json:"envs"`
+	Metrics  string `json:"metrics"`
 }
 
 // DefWorkloads is the defined workloads.
@@ -89,13 +91,6 @@ var DefWorkloads = []string{
 	"nginx",
 	"iperf3",
 	"mysql",
-}
-
-// DefTools is list of the defined testing tools.
-var DefTools = []string{
-	"wrk",
-	"iperf3",
-	"tpcc-mysql",
 }
 
 // TestingCaseSetHasDefined finds whether all the string in slice a have defined in slice b or not.

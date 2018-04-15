@@ -24,6 +24,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/ZJU-SEL/capstan/pkg/util"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -206,12 +207,12 @@ func CheckDeployment(kubeClient kubernetes.Interface, name string) error {
 }
 
 // HasTestingDone checks the testing case has finished
-// or not(use the finish mark "Capstan Testing Done").
+// or not(use the finish mark "Capstan finish the test case").
 func HasTestingDone(data []byte) bool {
 	scanner := bufio.NewScanner(bytes.NewBuffer(data))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if line == "Capstan Testing Done" {
+		if line == "Capstan finish the test case" {
 			return true
 		}
 	}
@@ -257,6 +258,27 @@ func CreateNamespace(kubeClient kubernetes.Interface, namespace string) error {
 func DeleteNamespace(kubeClient kubernetes.Interface, namespace string) error {
 	if err := kubeClient.CoreV1().Namespaces().Delete(namespace, apismetav1.NewDeleteOptions(0)); err != nil {
 		return errors.Wrapf(err, "failed to delete namespace %v", namespace)
+	}
+
+	return nil
+}
+
+// CreateConfigMapFromFile creates a configmap from specific file.
+func CreateConfigMapFromFile(kubeClient kubernetes.Interface, filePath string) error {
+	ret, err := util.RunCommand("kubectl", "create", "configmap", "capstan-script", "--from-file=run_test.sh="+filePath, "-n="+Namespace)
+	if err != nil {
+		return errors.Errorf("failed create configmap, ret:%s, error:%v", strings.Join(ret, "\n"), err)
+	}
+
+	return nil
+}
+
+// CreateConfigMap creates a configmap from a map.
+func CreateConfigMap(kubeClient kubernetes.Interface, name string, data map[string]string) error {
+	cmSpec := &v1.ConfigMap{ObjectMeta: apismetav1.ObjectMeta{Name: name}, Data: data}
+	_, err := kubeClient.CoreV1().ConfigMaps(Namespace).Create(cmSpec)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to create configmap %v", name)
 	}
 
 	return nil

@@ -122,8 +122,8 @@ func (t *TestingTool) Run(kubeClient kubernetes.Interface, testingCase workload.
 	return nil
 }
 
-// GetTestingResults gets the testing results of iperf3 testing case (to adhere to workload.Tool interface).
-func (t *TestingTool) GetTestingResults(kubeClient kubernetes.Interface) error {
+// HasTestingDone check the testing case has finished and fetch the results (to adhere to workload.Tool interface).
+func (t *TestingTool) HasTestingDone(kubeClient kubernetes.Interface) error {
 	name := workload.BuildTestingPodName(t.GetName()+"-client", t.CurrentTesting.Name)
 	for {
 		// Sleep between each poll
@@ -235,10 +235,10 @@ func (t *TestingTool) GetTestingCaseSet() []workload.TestingCase {
 // findTemplate returns the true testing tool template and arguments for different testing cases.
 func (t *TestingTool) findTemplate(name string) (string, string) {
 	if t.CurrentTesting.Name == benchmarkTCPDiffNode {
-		return iperfClientPodAntiAffinity, t.CurrentTesting.TestingToolArgs
+		return iperfClientPodAntiAffinity, t.CurrentTesting.Args
 	}
 	if t.CurrentTesting.Name == benchmarkTCPSameNode {
-		return iperfClientPodAffinity, t.CurrentTesting.TestingToolArgs
+		return iperfClientPodAffinity, t.CurrentTesting.Args
 	}
 	return "", ""
 }

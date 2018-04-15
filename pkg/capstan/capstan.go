@@ -52,10 +52,10 @@ func Run(kubeClient kubernetes.Interface, capstanConfig string) error {
 		return errors.New("Testing workload not set, exit")
 	}
 
-	// 2. Load all workloads
+	// create a namespace for capstan
 	err = workload.CreateNamespace(kubeClient, workload.Namespace)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Failed create namespace")
 	}
 
 	defer func() {
@@ -65,6 +65,7 @@ func Run(kubeClient kubernetes.Interface, capstanConfig string) error {
 		}
 	}()
 
+	// 2. Load all workloads
 	workloads, err := loader.LoadAllWorkloads(cfg.Workloads)
 	if err != nil {
 		return errors.Wrap(err, "Failed load workloads")

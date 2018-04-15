@@ -18,15 +18,15 @@ package loader
 
 import (
 	"github.com/ZJU-SEL/capstan/pkg/workload"
+	"github.com/ZJU-SEL/capstan/pkg/workload/helm"
 	"github.com/ZJU-SEL/capstan/pkg/workload/iperf3"
-	"github.com/ZJU-SEL/capstan/pkg/workload/mysql"
 	"github.com/ZJU-SEL/capstan/pkg/workload/nginx"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 )
 
 // LoadAllWorkloads loads all workloads by parsing workloads section config,
-// return all of workloads which are supported in the capstan.
+// return all of workloads which to be test.
 func LoadAllWorkloads(workloads []workload.Workload) (ret []workload.Interface, err error) {
 	for _, wl := range workloads {
 		find := false
@@ -55,7 +55,7 @@ func loadWorkload(wl workload.Workload) (workload.Interface, error) {
 	case "iperf3":
 		return iperf3.NewWorkload(wl)
 	case "mysql":
-		return mysql.NewWorkload(wl)
+		return helm.NewWorkload(wl)
 	default:
 		return nil, errors.Errorf("unknown workload %v", wl.Name)
 	}
